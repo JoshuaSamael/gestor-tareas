@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gestor de Tareas</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+    }
+
+    .contenedor {
+      background: white;
+      border-radius: 10px;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+      padding: 30px;
+      max-width: 500px;
+      width: 100%;
+    }
+
+    h1 {
+      color: #333;
+      margin-bottom: 30px;
+      text-align: center;
+    }
+
+    .formulario {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 30px;
+    }
+
+    input {
+      flex: 1;
+      padding: 12px;
+      border: 2px solid #ddd;
+      border-radius: 5px;
+      font-size: 14px;
+      transition: border-color 0.3s;
+    }
+
+    input:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+
+    button {
+      padding: 12px 25px;
+      background: #667eea;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: bold;
+      transition: background 0.3s;
+    }
+
+    button:hover {
+      background: #764ba2;
+    }
+
+    .lista-tareas {
+      list-style: none;
+    }
+
+    .item-tarea {
+      background: #f5f5f5;
+      padding: 15px;
+      margin-bottom: 10px;
+      border-radius: 5px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      transition: background 0.3s;
+    }
+
+    .item-tarea:hover {
+      background: #efefef;
+    }
+
+    .item-tarea.completada {
+      opacity: 0.6;
+    }
+
+    .item-tarea.completada .titulo {
+      text-decoration: line-through;
+      color: #999;
+    }
+
+    input[type="checkbox"] {
+      width: 20px;
+      height: 20px;
+      cursor: pointer;
+    }
+
+    .titulo {
+      flex: 1;
+      color: #333;
+    }
+
+    .btn-eliminar {
+      background: #e74c3c;
+      padding: 8px 15px;
+      font-size: 12px;
+    }
+
+    .btn-eliminar:hover {
+      background: #c0392b;
+    }
+
+    .mensaje {
+      padding: 10px;
+      border-radius: 5px;
+      margin-bottom: 15px;
+      text-align: center;
+      display: none;
+    }
+
+    .mensaje.error {
+      background: #ffe6e6;
+      color: #c0392b;
+      display: block;
+    }
+
+    .mensaje.exito {
+      background: #e6ffe6;
+      color: #27ae60;
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <div class="contenedor">
+    <h1>📋 Gestor de Tareas</h1>
+    
+    <div id="mensaje" class="mensaje"></div>
+
+    <div class="formulario">
+      <input 
+        type="text" 
+        id="inputTarea" 
+        placeholder="Agregar nueva tarea..."
+        autocomplete="off"
+      >
+      <button onclick="agregarTarea()">Agregar</button>
+    </div>
+
+    <ul id="listaTareas" class="lista-tareas"></ul>
+  </div>
+
+  <script>
+    const API_URL = 'http://localhost:3000/api/tareas';
+
+    // Cargar tareas al iniciar
+    document.addEventListener('DOMContentLoaded', cargarTareas);
+
+    // Permitir agregar tarea con Enter
+    document.getElementById('inputTarea').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') agregarTarea();
+    });
+
+    async function cargarTareas() {
+      try {
+        const respuesta = await fetch(API_URL);
+        const tareas = await respuesta.json();
+        mostrarTareas(tareas);
+      } catch (error) {
+        mostrarMensaje('Error al cargar tareas', 'error');
+      }
+    }
+
+    function mostrarTareas(tareas) {
+      const listaTareas = document.getElementById('listaTareas');
+      listaTareas.innerHTML = '';
+
+      tareas.forEach(tarea => {
+        const li = document.createElement('li');
+        li.className = `item-tarea ${tarea.completada ? 'completada' : ''}`;
+        
+        li.innerHTML = `
+          <input 
+            type="checkbox" 
+            ${tarea.completada ? 'checked' : ''}
+            onchange="toggleTarea(${tarea.id}, this.checked)"
+          >
+          <span class="titulo">${tarea.titulo}</span>
+          <button class="btn-eliminar" onclick="eliminarTarea(${tarea.id})">
+            Eliminar
+          </button>
+        `;
+        
+        listaTareas.appendChild(li);
+      });
+    }
+
+    async function agregarTarea() {
+      const input = document.getElementById('inputTarea');
+      const titulo = input.value.trim();
+
+      if (!titulo) {
+        mostrarMensaje('Por favor ingresa una tarea', 'error');
+        return;
+      }
+
+      try {
+        const respuesta = await fetch(API_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ titulo })
+        });
+
+        if (respuesta.ok) {
+          input.value = '';
+          mostrarMensaje('Tarea agregada correctamente', 'exito');
+          cargarTareas();
+        }
+      } catch (error) {
+        mostrarMensaje('Error al agregar tarea', 'error');
+      }
+    }
+
+    async function toggleTarea(id, completada) {
+      try {
+        await fetch(`${API_URL}/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ completada })
+        });
+        cargarTareas();
+      } catch (error) {
+        mostrarMensaje('Error al actualizar tarea', 'error');
+      }
+    }
+
+    async function eliminarTarea(id) {
+      if (!confirm('¿Estás seguro de que deseas eliminar esta tarea?')) return;
+
+      try {
+        await fetch(`${API_URL}/${id}`, {
+          method: 'DELETE'
+        });
+        mostrarMensaje('Tarea eliminada', 'exito');
+        cargarTareas();
+      } catch (error) {
+        mostrarMensaje('Error al eliminar tarea', 'error');
+      }
+    }
+
+    function mostrarMensaje(texto, tipo) {
+      const elemento = document.getElementById('mensaje');
+      elemento.textContent = texto;
+      elemento.className = `mensaje ${tipo}`;
+      
+      setTimeout(() => {
+        elemento.className = 'mensaje';
+      }, 3000);
+    }
+  </script>
+</body>
+</html>
